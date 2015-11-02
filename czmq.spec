@@ -1,19 +1,15 @@
 Name:           czmq
 Version:        3.0.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-level C binding for 0MQ (ZeroMQ)
 
 Group:          Development/Libraries
 License:        MPLv2.0
 URL:            http://czmq.zeromq.org/
-Source0:        http://download.zeromq.org/czmq-%{version}.tar.gz
-# Upstream file
-Source1:        autogen.sh
-# Upstream patch 70a01b00cebcc4fbec0ffe31c26447d3810f488f
-Patch0:         0001-Problem-does-not-install-man-pages-if-BUILD_DOC-is-o.patch
+Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  libuuid-devel
-BuildRequires:  zeromq-devel
+BuildRequires:  zeromq4-devel
 BuildRequires:  autoconf automake libtool
 
 %description
@@ -28,7 +24,7 @@ iii) To provide a space for development of more sophisticated API semantics.
 Summary:        Development files for the czmq package
 Group:          Development/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-Requires:       zeromq-devel
+Requires:       zeromq4-devel
 Requires:       pkgconfig
 
 %description devel
@@ -37,8 +33,6 @@ This package contains files needed to develop applications using czmq.
 
 %prep
 %setup -q
-%patch0 -p1
-cp -f %{SOURCE1} .
 
 %build
 ./autogen.sh
@@ -56,10 +50,6 @@ make install DESTDIR=%{buildroot}
 
 rm -f %{buildroot}%{_libdir}/libczmq.{a,la}
 
-# Avoid file conflict
-mv %{buildroot}%{_bindir}/makecert %{buildroot}%{_bindir}/czmq_makecert
-mv %{buildroot}%{_mandir}/man1/makecert.1 %{buildroot}%{_mandir}/man1/czmq_makecert.1
-
 
 %check
 # LD_LIBRARY_PATH=%{buildroot}/%{_libdir} make check
@@ -76,13 +66,14 @@ mv %{buildroot}%{_mandir}/man1/makecert.1 %{buildroot}%{_mandir}/man1/czmq_makec
 
 %files devel
 %doc CONTRIBUTING.md README.md
-%{_bindir}/czmq_makecert
+%{_bindir}/zmakecert
 %{_includedir}/*
 %{_libdir}/*.so
 %{_libdir}/pkgconfig/*
 %{_mandir}/man1/*.1*
 %{_mandir}/man3/*.3*
 %{_mandir}/man7/*.7*
+%{_datarootdir}/zproject/czmq/*.xml
 
 
 %changelog
