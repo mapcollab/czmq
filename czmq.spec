@@ -77,6 +77,12 @@ rm -f %{buildroot}%{_libdir}/libczmq.{a,la}
 
 
 %changelog
+* Mon Nov 02 2015 Tomasz Rostanski <tomasz.rostanski@thalesgroup.com.pl> 3.0.2-3
+- initial version for mps
+
+* Mon Nov 02 2015 Tomasz Rostanski <tomasz.rostanski@thalesgroup.com.pl>
+- initial version for mps
+
 * Sat Jun 27 2015 Jose Pedro Oliveira <jose.p.oliveira.oss at gmail.com> - 3.0.2-2
 - Disable the test suite for the moment (requires network access)
 
