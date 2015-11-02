@@ -1,6 +1,6 @@
 Name:           czmq
 Version:        3.0.2
-Release:        3%{?dist}
+Release:        3
 Summary:        High-level C binding for 0MQ (ZeroMQ)
 
 Group:          Development/Libraries
