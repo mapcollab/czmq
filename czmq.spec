@@ -1,6 +1,6 @@
 Name:           czmq
 Version:        3.0.2
-Release:        3
+Release:        4
 Summary:        High-level C binding for 0MQ (ZeroMQ)
 
 Group:          Development/Libraries
@@ -77,6 +77,11 @@ rm -f %{buildroot}%{_libdir}/libczmq.{a,la}
 
 
 %changelog
+* Thu Apr 21 2016 Michal Gawlik <michal.gawlik@thalesgroup.com> 3.0.2-4
+- tito: use ReleaseTagger (michal.gawlik@thalesgroup.com)
+- czmq.spec: remove dist name from rpm version
+  (tomasz.rostanski@thalesgroup.com.pl)
+
 * Mon Nov 02 2015 Tomasz Rostanski <tomasz.rostanski@thalesgroup.com.pl> 3.0.2-3
 - initial version for mps
 
