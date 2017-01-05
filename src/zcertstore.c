@@ -175,7 +175,10 @@ void
 zcertstore_insert (zcertstore_t *self, zcert_t **cert_p)
 {
     int rc = zhashx_insert (self->certs, zcert_public_txt (*cert_p), *cert_p);
-    assert (rc == 0);
+    if (rc != 0) {
+        zsys_warning ("zcertstore: certificate '%s' is duplicated", zcert_public_txt(*cert_p));
+        zcert_destroy (cert_p);
+    }
     *cert_p = NULL;             //  We own this now
 }
 
