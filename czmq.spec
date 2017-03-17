@@ -1,6 +1,6 @@
 Name:           czmq
 Version:        3.0.2
-Release:        5
+Release:        6
 Summary:        High-level C binding for 0MQ (ZeroMQ)
 
 Group:          Development/Libraries
@@ -77,6 +77,10 @@ rm -f %{buildroot}%{_libdir}/libczmq.{a,la}
 
 
 %changelog
+* Fri Mar 17 2017 Michal Gawlik <michal.gawlik@thalesgroup.com> 3.0.2-6
+- include/czmq_prelude.h: don't include zmq_utils.h if zeromq >= 4.2.0
+  (tomasz.rostanski@thalesgroup.com.pl)
+
 * Fri Jan 13 2017 Michal Gawlik <michal.gawlik@thalesgroup.com> 3.0.2-5
 - src/zcertstore.c: remove assertion on duplicated key
   (tomasz.rostanski@thalesgroup.com.pl)
