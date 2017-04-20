@@ -1,6 +1,6 @@
 Name:           czmq
-Version:        3.0.2
-Release:        6
+Version:        4.0.2
+Release:        1
 Summary:        High-level C binding for 0MQ (ZeroMQ)
 
 Group:          Development/Libraries
@@ -73,8 +73,7 @@ rm -f %{buildroot}%{_libdir}/libczmq.{a,la}
 %{_mandir}/man1/*.1*
 %{_mandir}/man3/*.3*
 %{_mandir}/man7/*.7*
-%{_datarootdir}/zproject/czmq/*.xml
-
+%{_datarootdir}/zproject/czmq/*
 
 %changelog
 * Fri Mar 17 2017 Michal Gawlik <michal.gawlik@thalesgroup.com> 3.0.2-6
