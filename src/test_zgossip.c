@@ -1,4 +1,4 @@
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 void
 assert_status (zactor_t *actor, int count)
@@ -13,8 +13,8 @@ assert_status (zactor_t *actor, int count)
             assert (atoi (status) == count);
             ready = true;
         }
-        free (command);
-        free (status);
+        freen (command);
+        freen (status);
     }
 }
 
@@ -165,7 +165,7 @@ main (int argn, char *argv [])
         zstr_recvx (which, &command, NULL);
         assert (streq (command, "DELIVER"));
         pending--;
-        free (command);
+        freen (command);
         if (zclock_mono () > ticker) {
             printf ("(%d%%)", (int) ((100 * (total - pending)) / total));
             fflush (stdout);
@@ -177,6 +177,10 @@ main (int argn, char *argv [])
         zactor_destroy (&nodes [node_nbr]);
 
     printf ("(100%%) OK\n");
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
 
     return 0;
 }

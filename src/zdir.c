@@ -1,25 +1,13 @@
 /*  =========================================================================
     zdir - work with file-system directories
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2014 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the
-    Free Software Foundation; either version 3 of the License, or (at your
-    option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTA-
-    BILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General
-    Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this program. If not, see http://www.gnu.org/licenses/.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================*/
 
 /*
@@ -32,7 +20,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 //  Structure of our class
 
@@ -103,6 +91,9 @@ s_posix_populate_entry (zdir_t *self, struct dirent *entry)
 }
 #endif
 
+#ifndef WIN32
+static pthread_mutex_t s_readdir_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 //  --------------------------------------------------------------------------
 //  Create a new directory item that loads in the full tree of the specified
@@ -113,8 +104,7 @@ zdir_t *
 zdir_new (const char *path, const char *parent)
 {
     zdir_t *self = (zdir_t *) zmalloc (sizeof (zdir_t));
-    if (!self)
-        return NULL;
+    assert (self);
 
     if (parent) {
         if (streq (parent, "-")) {
@@ -172,7 +162,7 @@ zdir_new (const char *path, const char *parent)
     sprintf (wildcard, "%s/*", self->path);
     WIN32_FIND_DATAA entry;
     HANDLE handle = FindFirstFileA (wildcard, &entry);
-    free (wildcard);
+    freen (wildcard);
 
     if (handle != INVALID_HANDLE_VALUE) {
         //  We have read an entry, so return those values
@@ -188,22 +178,22 @@ zdir_new (const char *path, const char *parent)
 
     DIR *handle = opendir (self->path);
     if (handle) {
-        //  Calculate system-specific size of dirent block
-        int dirent_size = offsetof (struct dirent, d_name)
-                          + pathconf (self->path, _PC_NAME_MAX) + 1;
-        struct dirent *entry = (struct dirent *) zmalloc (dirent_size);
-        if (!entry) {
-            zdir_destroy (&self);
-            return NULL;
-        }
-        struct dirent *result;
-
-        int rc = readdir_r (handle, entry, &result);
-        while (rc == 0 && result != NULL) {
+        // readdir_r is deprecated in glibc 2.24, but readdir is still not
+        // guaranteed to be thread safe if the same directory is accessed
+        // by different threads at the same time. Unfortunately given it was
+        // not a constraint before we cannot change it now as it would be an
+        // API breakage. Use a global lock when scanning the directory to
+        // work around it.
+        pthread_mutex_lock (&s_readdir_mutex);
+        struct dirent *entry = readdir (handle);
+        pthread_mutex_unlock (&s_readdir_mutex);
+        while (entry != NULL) {
+            // Beware of recursion. Lock only around readdir calls.
             s_posix_populate_entry (self, entry);
-            rc = readdir_r (handle, entry, &result);
+            pthread_mutex_lock (&s_readdir_mutex);
+            entry = readdir (handle);
+            pthread_mutex_unlock (&s_readdir_mutex);
         }
-        free (entry);
         closedir (handle);
     }
 #endif
@@ -253,8 +243,8 @@ zdir_destroy (zdir_t **self_p)
             }
         zlist_destroy (&self->subdirs);
         zlist_destroy (&self->files);
-        free (self->path);
-        free (self);
+        freen (self->path);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -386,7 +376,7 @@ void
 zdir_flatten_free (zfile_t ***files_p)
 {
     assert (files_p);
-    free (*files_p);
+    freen (*files_p);
     *files_p = NULL;
 }
 
@@ -530,8 +520,8 @@ zdir_diff (zdir_t *older, zdir_t *newer, const char *alias)
         old_index++;
         new_index++;
     }
-    free (old_files);
-    free (new_files);
+    freen (old_files);
+    freen (new_files);
 
     return patches;
 }
@@ -547,7 +537,7 @@ zdir_resync (zdir_t *self, const char *alias)
     zlist_t *patches = zlist_new ();
     if (!patches)
         return NULL;
-    
+
     zfile_t **files = zdir_flatten (self);
     uint index;
     for (index = 0;; index++) {
@@ -560,7 +550,7 @@ zdir_resync (zdir_t *self, const char *alias)
             break;
         }
     }
-    free (files);
+    freen (files);
     return patches;
 }
 
@@ -604,12 +594,12 @@ zdir_cache (zdir_t *self)
             }
         }
     }
-    free (files);
+    freen (files);
 
     //  Save cache to disk for future reference
     if (cache)
         zhash_save (cache, cache_file);
-    free (cache_file);
+    freen (cache_file);
     return cache;
 }
 
@@ -726,8 +716,9 @@ s_zdir_watch_destroy (zdir_watch_t **watch_p)
         zdir_watch_t *watch = *watch_p;
 
         zloop_destroy (&watch->loop);
+        zhash_destroy (&watch->subs);
 
-        free (watch);
+        freen (watch);
         *watch_p = NULL;
     }
 }
@@ -738,7 +729,7 @@ s_sub_free (void *data)
     zdir_watch_sub_t *sub = (zdir_watch_sub_t *) data;
     zdir_destroy (&sub->dir);
 
-    free (sub);
+    freen (sub);
 }
 
 static void
@@ -833,6 +824,8 @@ s_on_command (zloop_t *loop, zsock_t *reader, void *arg)
         zsys_info ("zdir_watch: Command received: %s", command);
 
     if (streq (command, "$TERM")) {
+        zstr_free (&command);
+        zmsg_destroy (&msg);
         return -1;
     }
     else
@@ -845,7 +838,7 @@ s_on_command (zloop_t *loop, zsock_t *reader, void *arg)
         char *path = zmsg_popstr (msg);
         if (path) {
             s_zdir_watch_subscribe (watch, path);
-            free (path);
+            freen (path);
         }
         else {
             if (watch->verbose)
@@ -859,7 +852,7 @@ s_on_command (zloop_t *loop, zsock_t *reader, void *arg)
         if (path) {
             assert (path);
             s_zdir_watch_unsubscribe (watch, path);
-            free (path);
+            freen (path);
         }
         else {
             if (watch->verbose)
@@ -873,7 +866,7 @@ s_on_command (zloop_t *loop, zsock_t *reader, void *arg)
         if (timeout_string) {
             int timeout = atoi (timeout_string);
             zsock_signal (watch->pipe, s_zdir_watch_timeout (watch, timeout));
-            free (timeout_string);
+            freen (timeout_string);
         }
         else {
             if (watch->verbose)
@@ -887,7 +880,8 @@ s_on_command (zloop_t *loop, zsock_t *reader, void *arg)
         zsock_signal (watch->pipe, 1);
     }
 
-    free (command);
+    freen (command);
+    zmsg_destroy (&msg);
     return 0;
 }
 
@@ -970,24 +964,30 @@ zdir_test (bool verbose)
     zactor_t *watch = zactor_new (zdir_watch, NULL);
     assert (watch);
 
+    int synced;
     if (verbose) {
         zsock_send (watch, "s", "VERBOSE");
-        assert (zsock_wait (watch) == 0);
+        synced = zsock_wait(watch);
+        assert ( synced == 0);
     }
 
     zclock_sleep (1001); // wait for initial file to become 'stable'
 
     zsock_send (watch, "si", "TIMEOUT", 100);
-    assert (zsock_wait (watch) == 0);
+    synced = zsock_wait(watch);
+    assert (synced == 0);
 
     zsock_send (watch, "ss", "SUBSCRIBE", "zdir-test-dir");
-    assert (zsock_wait (watch) == 0);
+    synced = zsock_wait(watch);
+    assert(synced == 0);
 
     zsock_send (watch, "ss", "UNSUBSCRIBE", "zdir-test-dir");
-    assert (zsock_wait (watch) == 0);
+    synced = zsock_wait(watch);
+    assert(synced == 0);
 
     zsock_send (watch, "ss", "SUBSCRIBE", "zdir-test-dir");
-    assert (zsock_wait (watch) == 0);
+    synced = zsock_wait(watch);
+    assert(synced == 0);
 
     zfile_t *newfile = zfile_new ("zdir-test-dir", "test_abc");
     zfile_output (newfile);
@@ -997,7 +997,8 @@ zdir_test (bool verbose)
     zpoller_t *watch_poll = zpoller_new (watch, NULL);
 
     // poll for a certain timeout before giving up and failing the test.
-    assert(zpoller_wait (watch_poll, 1001) == watch);
+    void* polled = zpoller_wait(watch_poll, 1001);
+    assert (polled == watch);
 
     // wait for notification of the file being added
     char *path;
@@ -1005,7 +1006,7 @@ zdir_test (bool verbose)
     assert (rc == 0);
 
     assert (streq (path, "zdir-test-dir"));
-    free (path);
+    freen (path);
 
     assert (zlist_size (patches) == 1);
 
@@ -1023,14 +1024,15 @@ zdir_test (bool verbose)
     zfile_destroy (&newfile);
 
     // poll for a certain timeout before giving up and failing the test.
-    assert(zpoller_wait (watch_poll, 1001) == watch);
+    polled = zpoller_wait(watch_poll, 1001);
+    assert (polled == watch);
 
     // wait for notification of the file being removed
     rc = zsock_recv (watch, "sp", &path, &patches);
     assert (rc == 0);
 
     assert (streq (path, "zdir-test-dir"));
-    free (path);
+    freen (path);
 
     assert (zlist_size (patches) == 1);
 
@@ -1050,6 +1052,10 @@ zdir_test (bool verbose)
     zdir_t *testdir = zdir_new ("zdir-test-dir", NULL);
     zdir_remove (testdir, true);
     zdir_destroy (&testdir);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\n");

@@ -10,17 +10,15 @@
      * The XML model used for this code generation: zgossip.xml, or
      * The code generation script that built this file: zproto_server_c
     ************************************************************************
-    Copyright (c) 1991-2012 iMatix Corporation -- http://www.imatix.com                
-    Copyright other contributors as noted in the AUTHORS file.                         
-                                                                                       
-    This file is part of CZMQ, the high-level C binding for 0MQ: http://czmq.zeromq.org
-                                                                                       
-    This Source Code Form is subject to the terms of the Mozilla Public                
-    License, v. 2.0. If a copy of the MPL was not distributed with this                
-    file, You can obtain one at http://mozilla.org/MPL/2.0/.                           
+    Copyright (c) the Contributors as noted in the AUTHORS file.       
+    This file is part of CZMQ, the high-level C binding for 0MQ:       
+    http://czmq.zeromq.org.                                            
+                                                                       
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.           
     =========================================================================
 */
-
 
 //  ---------------------------------------------------------------------------
 //  State machine constants
@@ -259,7 +257,7 @@ engine_set_log_prefix (client_t *client, const char *string)
 {
     if (client) {
         s_client_t *self = (s_client_t *) client;
-        snprintf (self->log_prefix, sizeof (self->log_prefix) - 1,
+        snprintf (self->log_prefix, sizeof (self->log_prefix),
             "%6d:%-33s", self->unique_id, string);
     }
 }
@@ -376,8 +374,8 @@ s_client_destroy (s_client_t **self_p)
         //  Provide visual clue if application misuses client reference
         engine_set_log_prefix (&self->client, "*** TERMINATED ***");
         client_terminate (&self->client);
-        free (self->hashkey);
-        free (self);
+        freen (self->hashkey);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -719,7 +717,7 @@ s_server_destroy (s_server_t **self_p)
         zsock_destroy (&self->router);
         zconfig_destroy (&self->config);
         zloop_destroy (&self->loop);
-        free (self);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -788,7 +786,7 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "$TERM")) {
         //  Shutdown the engine
-        free (method);
+        freen (method);
         zmsg_destroy (&msg);
         return -1;
     }
@@ -799,7 +797,7 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         self->port = zsock_bind (self->router, "%s", endpoint);
         if (self->port == -1)
             zsys_warning ("could not bind to %s", endpoint);
-        free (endpoint);
+        freen (endpoint);
     }
     else
     if (streq (method, "PORT")) {
@@ -820,7 +818,7 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
             zsys_warning ("cannot load config file '%s'", filename);
             self->config = zconfig_new ("root", NULL);
         }
-        free (filename);
+        freen (filename);
     }
     else
     if (streq (method, "SET")) {
@@ -829,18 +827,18 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         zconfig_put (self->config, path, value);
         if (streq (path, "server/animate")) {
             zsys_warning ("'%s' is deprecated, use VERBOSE command instead", path);
-            self->verbose = atoi (value);
+            self->verbose = (atoi (value) == 1);
         }
         s_server_config_global (self);
-        free (path);
-        free (value);
+        freen (path);
+        freen (value);
     }
     else
     if (streq (method, "SAVE")) {
         char *filename = zmsg_popstr (msg);
         if (zconfig_save (self->config, filename))
             zsys_warning ("cannot save config file '%s'", filename);
-        free (filename);
+        freen (filename);
     }
     else {
         //  Execute custom method
@@ -848,7 +846,7 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         //  If reply isn't null, send it to caller
         zmsg_send (&reply, self->pipe);
     }
-    free (method);
+    freen (method);
     zmsg_destroy (&msg);
     return 0;
 }
@@ -863,7 +861,7 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
     //  of polling and the reactor:
     while (zsock_events (self->router) & ZMQ_POLLIN) {
         if (zgossip_msg_recv (self->message, self->router))
-            return -1;              //  Interrupted; exit zloop
+            return -1;      //  Interrupted; exit zloop
 
         //  TODO: use binary hashing on routing_id
         char *hashkey = zframe_strhex (zgossip_msg_routing_id (self->message));
@@ -873,7 +871,7 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
             zhash_insert (self->clients, hashkey, client);
             zhash_freefn (self->clients, hashkey, s_client_free);
         }
-        free (hashkey);
+        freen (hashkey);
         //  Any input from client counts as activity
         if (client->ticket)
             zloop_ticket_reset (self->loop, client->ticket);

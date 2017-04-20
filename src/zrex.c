@@ -43,7 +43,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 #include "foreign/slre/slre.inc_c"
 
 #define MAX_HITS 100            //  Should be enough for anyone :)
@@ -72,15 +72,14 @@ zrex_t *
 zrex_new (const char *expression)
 {
     zrex_t *self = (zrex_t *) zmalloc (sizeof (zrex_t));
-    if (self) {
-        self->strerror = "No error";
-        if (expression) {
-            //  Returns 1 on success, 0 on failure
-            self->valid = (slre_compile (&self->slre, expression) == 1);
-            if (!self->valid)
-                self->strerror = self->slre.err_str;
-            assert (self->slre.num_caps < MAX_HITS);
-        }
+    assert (self);
+    self->strerror = "No error";
+    if (expression) {
+        //  Returns 1 on success, 0 on failure
+        self->valid = (slre_compile (&self->slre, expression) == 1);
+        if (!self->valid)
+            self->strerror = self->slre.err_str;
+        assert (self->slre.num_caps < MAX_HITS);
     }
     return self;
 }
@@ -96,7 +95,7 @@ zrex_destroy (zrex_t **self_p)
     if (*self_p) {
         zrex_t *self = *self_p;
         zstr_free (&self->hit_set);
-        free (self);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -301,6 +300,10 @@ zrex_test (bool verbose)
     assert (streq (zrex_hit (rex, 1), "CURVE"));
     assert (streq (mechanism, "CURVE"));
     zrex_destroy (&rex);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     
     //  @end
     printf ("OK\n");

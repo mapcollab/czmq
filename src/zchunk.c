@@ -13,13 +13,13 @@
 /*
 @header
     The zchunk class works with variable sized blobs. Not as efficient as
-    MQ's messages but they do less weirdness and so are easier to understand.
+    ZeroMQ's messages but they do less weirdness and so are easier to understand.
     The chunk class has methods to read and write chunks from disk.
 @discuss
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 //  zchunk_t instances always have this tag as the first 4 octets of
 //  their data, which lets us do runtime object typing & validation.
@@ -47,6 +47,7 @@ zchunk_new (const void *data, size_t size)
 {
     //  Use malloc, not zmalloc, to avoid nullification costs
     zchunk_t *self = (zchunk_t *) malloc (sizeof (zchunk_t) + size);
+    //  Catch memory exhaustion in this specific class
     if (self) {
         self->tag = ZCHUNK_TAG;
         self->size = 0;
@@ -75,10 +76,10 @@ zchunk_destroy (zchunk_t **self_p)
         assert (zchunk_is (self));
         //  If data was reallocated independently, free it independently
         if (self->data != (byte *) self + sizeof (zchunk_t))
-            free (self->data);
+            freen (self->data);
         self->tag = 0xDeadBeef;
         zdigest_destroy (&self->digest);
-        free (self);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -551,10 +552,10 @@ zchunk_test (bool verbose)
     assert (streq (zchunk_digest (chunk), "01B307ACBA4F54F55AAFC33BB06BBBF6CA803E9A"));
     char *string = zchunk_strdup (chunk);
     assert (streq (string, "1234567890"));
-    free (string);
+    freen (string);
     string = zchunk_strhex (chunk);
     assert (streq (string, "31323334353637383930"));
-    free (string);
+    freen (string);
 
     zframe_t *frame = zchunk_pack (chunk);
     assert (frame);
@@ -598,6 +599,10 @@ zchunk_test (bool verbose)
     assert (memcmp (zchunk_data (chunk), "ghij", 4) == 0);
     zchunk_destroy (&copy);
     zchunk_destroy (&chunk);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\n");

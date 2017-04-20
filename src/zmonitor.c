@@ -24,7 +24,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 //  --------------------------------------------------------------------------
 //  The self_t structure holds the state for one actor instance
@@ -50,7 +50,7 @@ s_self_destroy (self_t **self_p)
 #endif
         zpoller_destroy (&self->poller);
         zsock_destroy (&self->sink);
-        free (self);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -59,14 +59,11 @@ static self_t *
 s_self_new (zsock_t *pipe, void *sock)
 {
     self_t *self = (self_t *) zmalloc (sizeof (self_t));
-    if (!self)
-        return NULL;
-
+    assert (self);
     self->pipe = pipe;
     self->monitored = zsock_resolve (sock);
     self->poller = zpoller_new (self->pipe, NULL);
-    if (!self->poller)
-        s_self_destroy (&self);
+    assert (self->poller);
     return self;
 }
 
@@ -113,6 +110,16 @@ s_self_listen (self_t *self, const char *event)
         self->events |= ZMQ_EVENT_MONITOR_STOPPED;
     else
 #endif
+#if defined (ZMQ_EVENT_HANDSHAKE_FAILED)
+    if (streq (event, "HANDSHAKE_FAILED"))
+        self->events |= ZMQ_EVENT_HANDSHAKE_FAILED;
+    else
+#endif
+#if defined (ZMQ_EVENT_HANDSHAKE_SUCCEED)
+    if (streq (event, "HANDSHAKE_SUCCEED"))
+        self->events |= ZMQ_EVENT_HANDSHAKE_SUCCEED;
+    else
+#endif
     if (streq (event, "ALL"))
         self->events |= ZMQ_EVENT_ALL;
     else
@@ -140,7 +147,7 @@ s_self_start (self_t *self)
     rc = zsock_connect (self->sink, "%s", endpoint);
     assert (rc == 0);
     zpoller_add (self->poller, self->sink);
-    free (endpoint);
+    freen (endpoint);
 }
 
 
@@ -262,6 +269,16 @@ s_self_handle_sink (self_t *self)
             name = "MONITOR_STOPPED";
             break;
 #endif
+#if defined (ZMQ_EVENT_HANDSHAKE_FAILED)
+        case ZMQ_EVENT_HANDSHAKE_FAILED:
+            name = "HANDSHAKE_FAILED";
+            break;
+#endif
+#if defined (ZMQ_EVENT_HANDSHAKE_SUCCEED)
+        case ZMQ_EVENT_HANDSHAKE_SUCCEED:
+            name = "HANDSHAKE_SUCCEED";
+            break;
+#endif
         default:
             zsys_error ("illegal socket monitor event: %d", event);
             name = "UNKNOWN";
@@ -273,7 +290,7 @@ s_self_handle_sink (self_t *self)
     zstr_sendfm (self->pipe, "%s", name);
     zstr_sendfm (self->pipe, "%d", value);
     zstr_send (self->pipe, address);
-    free (address);
+    freen (address);
 #endif
 }
 
@@ -315,7 +332,7 @@ s_assert_event (zactor_t *self, char *expected)
     assert (msg);
     char *event = zmsg_popstr (msg);
     assert (streq (event, expected));
-    free (event);
+    freen (event);
     zmsg_destroy (&msg);
 }
 #endif
@@ -336,6 +353,9 @@ zmonitor_test (bool verbose)
     if (verbose)
         zstr_sendx (clientmon, "VERBOSE", NULL);
     zstr_sendx (clientmon, "LISTEN", "LISTENING", "ACCEPTED", NULL);
+#if defined (ZMQ_EVENT_HANDSHAKE_SUCCEED)
+    zstr_sendx (clientmon, "LISTEN", "HANDSHAKE_SUCCEED", NULL);
+#endif
     zstr_sendx (clientmon, "START", NULL);
     zsock_wait (clientmon);
 
@@ -363,11 +383,18 @@ zmonitor_test (bool verbose)
 
     //  Check client accepted connection
     s_assert_event (clientmon, "ACCEPTED");
+#if defined (ZMQ_EVENT_HANDSHAKE_SUCCEED)
+    s_assert_event (clientmon, "HANDSHAKE_SUCCEED");
+#endif
 
     zactor_destroy (&clientmon);
     zactor_destroy (&servermon);
     zsock_destroy (&client);
     zsock_destroy (&server);
+#endif
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
 #endif
     //  @end
     printf ("OK\n");

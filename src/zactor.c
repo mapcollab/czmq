@@ -31,7 +31,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 //  zactor_t instances always have this tag as the first 4 octets of
 //  their data, which lets us do runtime object typing & validation.
@@ -69,7 +69,7 @@ s_thread_shim (void *args)
     zsock_set_sndtimeo (shim->pipe, 0);
     zsock_signal (shim->pipe, 0);
     zsock_destroy (&shim->pipe);
-    free (shim);
+    freen (shim);
     return NULL;
 }
 
@@ -86,7 +86,7 @@ s_thread_shim (void *args)
     zsock_set_sndtimeo (shim->pipe, 0);
     zsock_signal (shim->pipe, 0);
     zsock_destroy (&shim->pipe);
-    free (shim);
+    freen (shim);
     _endthreadex (0);           //  Terminates thread
     return 0;
 }
@@ -97,24 +97,16 @@ s_thread_shim (void *args)
 //  Create a new actor.
 
 zactor_t *
-zactor_new (zactor_fn *actor, void *args)
+zactor_new (zactor_fn actor, void *args)
 {
     zactor_t *self = (zactor_t *) zmalloc (sizeof (zactor_t));
-    if (!self)
-        return NULL;
+    assert (self);
     self->tag = ZACTOR_TAG;
 
     shim_t *shim = (shim_t *) zmalloc (sizeof (shim_t));
-    if (!shim) {
-        zactor_destroy (&self);
-        return NULL;
-    }
+    assert (shim);
     shim->pipe = zsys_create_pipe (&self->pipe);
-    if (!shim->pipe) {
-        free (shim);
-        zactor_destroy (&self);
-        return NULL;
-    }
+    assert (shim->pipe);
     shim->handler = actor;
     shim->args = args;
 
@@ -172,7 +164,7 @@ zactor_destroy (zactor_t **self_p)
             zsock_destroy (&self->pipe);
         }
         self->tag = 0xDeadBeef;
-        free (self);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -270,7 +262,7 @@ echo_actor (zsock_t *pipe, void *args)
             puts ("E: invalid message to actor");
             assert (false);
         }
-        free (command);
+        freen (command);
         zmsg_destroy (&msg);
     }
 }
@@ -290,8 +282,12 @@ zactor_test (bool verbose)
     zstr_sendx (actor, "ECHO", "This is a string", NULL);
     char *string = zstr_recv (actor);
     assert (streq (string, "This is a string"));
-    free (string);
+    freen (string);
     zactor_destroy (&actor);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\n");

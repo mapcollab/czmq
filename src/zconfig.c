@@ -53,7 +53,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 //  Structure of our class
 
@@ -93,8 +93,7 @@ zconfig_t *
 zconfig_new (const char *name, zconfig_t *parent)
 {
     zconfig_t *self = (zconfig_t *) zmalloc (sizeof (zconfig_t));
-    if (!self)
-        return NULL;
+    assert (self);
 
     zconfig_set_name (self, name);
     if (parent) {
@@ -131,9 +130,9 @@ zconfig_destroy (zconfig_t **self_p)
         //  Destroy other properties and then self
         zlist_destroy (&self->comments);
         zfile_destroy (&self->file);
-        free (self->name);
-        free (self->value);
-        free (self);
+        freen (self->name);
+        freen (self->value);
+        freen (self);
         *self_p = NULL;
     }
 }
@@ -226,7 +225,7 @@ void
 zconfig_set_name (zconfig_t *self, const char *name)
 {
     assert (self);
-    free (self->name);
+    freen (self->name);
     self->name = name? strdup (name): NULL;
 }
 
@@ -241,7 +240,7 @@ void
 zconfig_set_value (zconfig_t *self, const char *format, ...)
 {
     assert (self);
-    free (self->value);
+    zstr_free (&self->value);
     if (format) {
         va_list argptr;
         va_start (argptr, format);
@@ -359,13 +358,15 @@ zconfig_execute (zconfig_t *self, zconfig_fct handler, void *arg)
 }
 
 
-//  Return number of bytes processed, or zero
+//  Return number of bytes processed if successful, otherwise -1.
 
 static int
 s_config_execute (zconfig_t *self, zconfig_fct handler, void *arg, int level)
 {
     assert (self);
     int size = handler (self, arg, level);
+    if (size == -1)
+        return -1; // fail early
 
     //  Process all children in one go, as a list
     zconfig_t *child = self->child;
@@ -463,7 +464,7 @@ s_config_printf (zconfig_t *self, void *arg, char *format, ...)
             fprintf ((FILE *) arg, "%s", string);
     }
     size_t size = strlen (string);
-    free (string);
+    zstr_free (&string);
     if (size > INT_MAX)
         return -1;
 
@@ -513,7 +514,7 @@ zconfig_loadf (const char *format, ...)
     va_end (argptr);
     if (filename) {
         zconfig_t *config = zconfig_load (filename);
-        free (filename);
+        freen (filename);
         return config;
     }
     else
@@ -535,7 +536,7 @@ zconfig_savef (zconfig_t *self, const char *format, ...)
     va_end (argptr);
     if (filename) {
         int rc = zconfig_save (self, filename);
-        free (filename);
+        zstr_free (&filename);
         return rc;
     }
     else
@@ -657,7 +658,7 @@ zconfig_chunk_load (zchunk_t *chunk)
                 }
                 else {
                     zclock_log ("E (zconfig): (%d) indentation error", lineno);
-                    free (value);
+                    freen (value);
                     valid = false;
                 }
             }
@@ -666,7 +667,7 @@ zconfig_chunk_load (zchunk_t *chunk)
         if (s_verify_eoln (scanner, lineno))
             valid = false;
 
-        free (name);
+        freen (name);
         if (!valid)
             break;
     }
@@ -732,7 +733,7 @@ s_collect_name (char **start, int lineno)
     && (name [0] == '/'
     ||  name [length - 1] == '/')) {
         zclock_log ("E (zconfig): (%d) '/' not valid at name start or end", lineno);
-        free (name);
+        freen (name);
         name = NULL;
     }
     return name;
@@ -810,7 +811,7 @@ s_collect_value (char **start, int lineno)
     }
     //  If we had an error, drop value and return NULL
     if (rc) {
-        free (value);
+        freen (value);
         value = NULL;
     }
     return value;
@@ -898,7 +899,7 @@ zconfig_set_comment (zconfig_t *self, const char *format, ...)
         va_end (argptr);
 
         zlist_append (self->comments, string);
-        free (string);
+        zstr_free (&string);
     }
     else
         zlist_destroy (&self->comments);
@@ -1001,7 +1002,7 @@ zconfig_test (bool verbose)
     char *string = zconfig_str_save (root);
     assert (string);
     assert (streq (string, (char *) zchunk_data (chunk)));
-    free (string);
+    freen (string);
     assert (chunk);
     zconfig_destroy (&root);
 
@@ -1024,6 +1025,10 @@ zconfig_test (bool verbose)
     assert (dir);
     zdir_remove (dir, true);
     zdir_destroy (&dir);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\n");

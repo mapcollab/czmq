@@ -12,3 +12,22 @@
    fun:send
    ...
 }
+{
+   <glibc_freeres>
+   Memcheck:Free
+   fun:free
+   ...
+   fun:__libc_freeres
+   ...
+}
+
+{
+    <glibc_internal_pool>
+    Memcheck:Leak
+    match-leak-kinds: reachable
+    fun:malloc
+    fun:pool
+    fun:__static_initialization_and_destruction_0
+    ...
+}
+

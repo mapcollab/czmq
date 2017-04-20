@@ -22,7 +22,7 @@
 @end
 */
 
-#include "../include/czmq.h"
+#include "czmq_classes.h"
 
 #if defined (__WINDOWS__)
 //  --------------------------------------------------------------------------
@@ -226,7 +226,11 @@ zclock_test (bool verbose)
     char *timestr = zclock_timestr ();
     if (verbose)
         puts (timestr);
-    free (timestr);
+    freen (timestr);
+
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\n");
